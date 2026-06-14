@@ -38,6 +38,7 @@ import com.takeout.module.user.service.SseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -66,102 +67,44 @@ public class OrderServiceImpl implements OrderService {
     private final RiderMapper riderMapper;
     private final UserMapper userMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final JdbcTemplate jdbcTemplate;
     private final SseService sseService;
     private final NotificationService notificationService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
     public OrderVO submitOrder(Long customerId, OrderSubmitDTO dto) {
-        // 1. 校验配送地址
-        Address address = addressMapper.selectById(dto.getAddressId());
-        if (address == null || !address.getCustomerId().equals(customerId)) {
-            throw new BusinessException(CommonConstant.ADDRESS_INCOMPLETE, "配送地址不存在");
-        }
-
-        // 2. 校验商家
-        Merchant merchant = merchantMapper.selectById(dto.getMerchantId());
-        if (merchant == null || !"已通过".equals(merchant.getAuditStatus())) {
-            throw new BusinessException(CommonConstant.NOT_FOUND, "商家不存在或未通过审核");
-        }
-
-        // 3. 查询购物车菜品，校验上架状态和库存
         List<CartItemDTO> items = dto.getItems();
-        for (CartItemDTO item : items) {
-            Dish dish = dishMapper.selectById(item.getDishId());
-            if (dish == null || !"上架".equals(dish.getStatus())) {
-                throw new BusinessException(CommonConstant.DISH_OFF_SHELF, "菜品【" + (dish != null ? dish.getName() : item.getDishId()) + "】已下架");
-            }
-            if (dish.getStock() < item.getQuantity()) {
-                throw new BusinessException(CommonConstant.STOCK_INSUFFICIENT, "菜品【" + dish.getName() + "】库存不足");
-            }
-            if (!dish.getMerchantId().equals(dto.getMerchantId())) {
-                throw new BusinessException("菜品【" + dish.getName() + "】不属于该商家");
-            }
-        }
+        if (items.isEmpty()) throw new BusinessException("订单明细不能为空");
 
-        // 4. 计算总金额
-        BigDecimal totalAmount = BigDecimal.ZERO;
-        for (CartItemDTO item : items) {
-            Dish dish = dishMapper.selectById(item.getDishId());
-            totalAmount = totalAmount.add(dish.getPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
-        }
-
-        // 5. 生成订单编号 (YYYYMMDD + 6位流水)
-        String orderNo = generateOrderNo();
-
-        // 6. 写入订单主表
-        Order order = new Order();
-        order.setOrderNo(orderNo);
-        order.setCustomerId(customerId);
-        order.setMerchantId(dto.getMerchantId());
-
-        // 商家自动接单逻辑
-        if (merchant.getAutoAccept() == 1) {
-            order.setStatus("备餐中");
-        } else {
-            order.setStatus("已提交");
-        }
-
-        order.setTotalAmount(totalAmount);
-        order.setRemark(dto.getRemark());
-        order.setAddressId(dto.getAddressId());
-        orderMapper.insert(order);
-
-        // 7. 写入订单明细（价格快照）
-        for (CartItemDTO item : items) {
-            Dish dish = dishMapper.selectById(item.getDishId());
-            OrderItem orderItem = new OrderItem();
-            orderItem.setOrderNo(orderNo);
-            orderItem.setDishId(dish.getId());
-            orderItem.setDishName(dish.getName());
-            orderItem.setUnitPrice(dish.getPrice());
-            orderItem.setQuantity(item.getQuantity());
-            orderItemMapper.insert(orderItem);
-        }
-
-        // 8. 扣减库存（乐观锁）
-        for (CartItemDTO item : items) {
-            int affected = dishMapper.deductStock(item.getDishId(), item.getQuantity());
-            if (affected == 0) {
-                throw new BusinessException(CommonConstant.STOCK_INSUFFICIENT, "库存扣减失败，请重试");
+        // 准备5个菜品参数（存储过程最多支持5个）
+        Long d1=null,d2=null,d3=null,d4=null,d5=null;
+        Integer q1=0,q2=0,q3=0,q4=0,q5=0;
+        for (int i=0; i<items.size() && i<5; i++) {
+            CartItemDTO item = items.get(i);
+            switch (i) {
+                case 0 -> { d1=item.getDishId(); q1=item.getQuantity(); }
+                case 1 -> { d2=item.getDishId(); q2=item.getQuantity(); }
+                case 2 -> { d3=item.getDishId(); q3=item.getQuantity(); }
+                case 3 -> { d4=item.getDishId(); q4=item.getQuantity(); }
+                case 4 -> { d5=item.getDishId(); q5=item.getQuantity(); }
             }
         }
 
-        // 9. 清空对应的购物车项
-        for (CartItemDTO item : items) {
-            cartItemMapper.delete(new LambdaQueryWrapper<CartItem>()
-                    .eq(CartItem::getCustomerId, customerId)
-                    .eq(CartItem::getDishId, item.getDishId()));
-        }
+        // 调用存储过程（原子操作：校验库存→写订单→扣库存→清购物车）
+        jdbcTemplate.update("CALL sp_submit_order(?,?,?,?,?,?,?,?,?,?,?,?,?,?,@ono)",
+                customerId, dto.getMerchantId(), dto.getAddressId(), dto.getRemark(),
+                d1, q1, d2, q2, d3, q3, d4, q4, d5, q5);
+        String orderNo = jdbcTemplate.queryForObject("SELECT @ono", String.class);
 
-        log.info("订单提交成功: orderNo={}, customerId={}, amount={}", orderNo, customerId, totalAmount);
+        log.info("订单提交成功(SQL): orderNo={}, customerId={}", orderNo, customerId);
 
-        // SSE推送 + 通知：告知商家有新订单
+        // SSE推送 + 通知
         Long merchantUserId = dto.getMerchantId();
         sseService.sendEvent(merchantUserId, "order:new",
-                Map.of("orderNo", orderNo, "totalAmount", totalAmount, "status", order.getStatus()));
+                Map.of("orderNo", orderNo, "status", "已提交"));
         notificationService.create(merchantUserId, "order_new",
-                "新订单通知", "您有一条新订单（" + orderNo + "），金额 ¥" + totalAmount, orderNo);
+                "新订单通知", "您有一条新订单（" + orderNo + "）", orderNo);
 
         return buildOrderVO(orderNo);
     }

@@ -1,0 +1,115 @@
+erDiagram
+    用户 {
+        int 用户ID PK
+        varchar 手机号
+        varchar 登录密码
+        varchar 用户身份
+        varchar 账号状态
+        datetime 注册时间
+    }
+
+    管理员 {
+        int 管理员ID PK
+        varchar 姓名
+    }
+
+    商家 {
+        int 商家ID PK
+        varchar 商家名称
+        varchar 联系电话
+        varchar 营业地址_省
+        varchar 营业地址_市
+        varchar 营业地址_区
+        varchar 营业地址_详细
+        varchar 营业时间_起始
+        varchar 营业时间_结束
+        varchar 商家公告
+        varchar 营业状态
+        varchar 入驻审核状态
+        int 月销量
+    }
+
+    顾客 {
+        int 顾客ID PK
+        varchar 姓名
+        varchar 配送地址_省
+        varchar 配送地址_市
+        varchar 配送地址_区
+        varchar 配送地址_详细
+    }
+
+    骑手 {
+        int 骑手ID PK
+        varchar 姓名
+        varchar 配送状态
+        int 累计配送单数
+    }
+
+    菜品分类 {
+        int 分类ID PK
+        int 商家ID FK
+        varchar 分类名称
+        int 排序序号
+    }
+
+    菜品 {
+        int 菜品ID PK
+        int 商家ID FK
+        int 分类ID FK
+        varchar 菜品名称
+        decimal 菜品价格
+        varchar 菜品描述
+        varchar 菜品图片URL
+        int 库存量
+        varchar 上架状态
+    }
+
+    购物车项 {
+        int 购物车项ID PK
+        int 顾客ID FK
+        int 菜品ID FK
+        int 数量
+    }
+
+    订单 {
+        varchar 订单编号 PK
+        int 顾客ID FK
+        int 商家ID FK
+        datetime 下单时间
+        varchar 订单状态
+        decimal 总金额
+        varchar 订单备注
+    }
+
+    订单明细 {
+        int 明细ID PK
+        varchar 订单编号 FK
+        int 菜品ID FK
+        int 数量
+        decimal 成交单价
+    }
+
+    配送 {
+        int 配送ID PK
+        varchar 订单编号 FK
+        int 骑手ID FK
+        datetime 取餐时间
+        datetime 送达时间
+        varchar 配送状态
+    }
+
+    用户 ||--|| 管理员 : "ISA 1:1"
+    用户 ||--|| 商家 : "ISA 1:1"
+    用户 ||--|| 顾客 : "ISA 1:1"
+    用户 ||--|| 骑手 : "ISA 1:1"
+    商家 ||--o{ 菜品分类 : "拥有 1:N"
+    菜品分类 ||--o{ 菜品 : "包含 1:N"
+    商家 ||--o{ 菜品 : "直接拥有 1:N"
+    顾客 ||--o{ 购物车项 : "加入 1:N"
+    购物车项 }o--|| 菜品 : "对应 N:1"
+    顾客 ||--o{ 订单 : "提交 1:N"
+    商家 ||--o{ 订单 : "接收 1:N"
+    订单 ||--o{ 订单明细 : "包含 1:N"
+    订单明细 }o--|| 菜品 : "对应 N:1"
+    订单 ||--|| 配送 : "生成 1:1"
+    骑手 ||--o{ 配送 : "执行 1:N"

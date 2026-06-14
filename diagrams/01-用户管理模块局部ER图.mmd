@@ -1,0 +1,51 @@
+erDiagram
+    用户 {
+        int 用户ID PK
+        varchar 手机号
+        varchar 登录密码
+        varchar 用户身份
+        varchar 账号状态
+        datetime 注册时间
+    }
+
+    管理员 {
+        int 管理员ID PK
+        varchar 姓名
+    }
+
+    商家 {
+        int 商家ID PK
+        varchar 商家名称
+        varchar 联系电话
+        varchar 营业地址_省
+        varchar 营业地址_市
+        varchar 营业地址_区
+        varchar 营业地址_详细
+        varchar 营业时间_起始
+        varchar 营业时间_结束
+        varchar 商家公告
+        varchar 营业状态
+        varchar 入驻审核状态
+        int 月销量
+    }
+
+    顾客 {
+        int 顾客ID PK
+        varchar 姓名
+        varchar 配送地址_省
+        varchar 配送地址_市
+        varchar 配送地址_区
+        varchar 配送地址_详细
+    }
+
+    骑手 {
+        int 骑手ID PK
+        varchar 姓名
+        varchar 配送状态
+        int 累计配送单数
+    }
+
+    用户 ||--|| 管理员 : "ISA 1:1"
+    用户 ||--|| 商家 : "ISA 1:1"
+    用户 ||--|| 顾客 : "ISA 1:1"
+    用户 ||--|| 骑手 : "ISA 1:1"

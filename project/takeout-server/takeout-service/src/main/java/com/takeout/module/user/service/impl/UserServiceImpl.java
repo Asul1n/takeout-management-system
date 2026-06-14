@@ -74,60 +74,15 @@ public class UserServiceImpl implements UserService {
     private final JdbcTemplate jdbcTemplate;
 
     @Override
-    @Transactional
     public void register(RegisterDTO dto) {
-        // 校验手机号唯一性
-        if (userMapper.selectCount(new LambdaQueryWrapper<User>().eq(User::getPhone, dto.getPhone())) > 0) {
-            throw new BusinessException(CommonConstant.PHONE_EXISTS, "手机号已注册");
-        }
-
-        // 校验角色
         if (!UserRoleEnum.isValid(dto.getRole())) {
             throw new BusinessException(CommonConstant.PARAM_ERROR, "无效的用户身份");
         }
-
-        // 创建用户账号
-        User user = new User();
-        user.setPhone(dto.getPhone());
-        user.setPassword(passwordEncoder.encode(dto.getPassword()));
-        user.setRole(dto.getRole());
-        user.setStatus("正常");
-        userMapper.insert(user);
-
-        Long userId = user.getId();
-
-        // 根据角色创建对应子表记录
-        switch (dto.getRole()) {
-            case "CUSTOMER" -> {
-                Customer customer = new Customer();
-                customer.setId(userId);
-                customer.setName(dto.getName() != null ? dto.getName() : dto.getPhone());
-                customerMapper.insert(customer);
-            }
-            case "MERCHANT" -> {
-                Merchant merchant = new Merchant();
-                merchant.setId(userId);
-                merchant.setName(dto.getName() != null ? dto.getName() : "新商家" + userId);
-                merchant.setProvince(dto.getProvince() != null ? dto.getProvince() : "待完善");
-                merchant.setCity(dto.getCity() != null ? dto.getCity() : "待完善");
-                merchant.setDistrict(dto.getDistrict() != null ? dto.getDistrict() : "待完善");
-                merchant.setAddressDetail(dto.getAddressDetail() != null ? dto.getAddressDetail() : "待完善");
-                merchant.setOpenTime(dto.getOpenTime() != null ? dto.getOpenTime() : "09:00");
-                merchant.setCloseTime(dto.getCloseTime() != null ? dto.getCloseTime() : "21:00");
-                merchant.setBizStatus("营业中");
-                merchant.setAuditStatus("待审核");
-                merchantMapper.insert(merchant);
-            }
-            case "RIDER" -> {
-                Rider rider = new Rider();
-                rider.setId(userId);
-                rider.setName(dto.getName() != null ? dto.getName() : dto.getPhone());
-                rider.setStatus("空闲");
-                riderMapper.insert(rider);
-            }
-        }
-
-        log.info("用户注册成功: phone={}, role={}, userId={}", dto.getPhone(), dto.getRole(), userId);
+        // 调用存储过程完成注册（原子操作）
+        jdbcTemplate.update("CALL sp_register_user(?,?,?,?,?,?,?,?,@uid)",
+                dto.getPhone(), passwordEncoder.encode(dto.getPassword()), dto.getRole(),
+                dto.getName(), dto.getProvince(), dto.getCity(), dto.getDistrict(), dto.getAddressDetail());
+        log.info("用户注册成功: phone={}, role={}", dto.getPhone(), dto.getRole());
     }
 
     @Override

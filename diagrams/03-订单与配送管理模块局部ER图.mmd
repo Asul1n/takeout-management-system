@@ -1,0 +1,73 @@
+erDiagram
+    顾客 {
+        int 顾客ID PK
+        varchar 姓名
+        varchar 配送地址_省
+        varchar 配送地址_市
+        varchar 配送地址_区
+        varchar 配送地址_详细
+    }
+
+    商家 {
+        int 商家ID PK
+        varchar 商家名称
+        varchar 营业状态
+    }
+
+    购物车项 {
+        int 购物车项ID PK
+        int 顾客ID FK
+        int 菜品ID FK
+        int 数量
+    }
+
+    菜品 {
+        int 菜品ID PK
+        varchar 菜品名称
+        decimal 菜品价格
+        int 库存量
+        varchar 上架状态
+    }
+
+    订单 {
+        varchar 订单编号 PK
+        int 顾客ID FK
+        int 商家ID FK
+        datetime 下单时间
+        varchar 订单状态
+        decimal 总金额
+        varchar 订单备注
+    }
+
+    订单明细 {
+        int 明细ID PK
+        varchar 订单编号 FK
+        int 菜品ID FK
+        int 数量
+        decimal 成交单价
+    }
+
+    配送 {
+        int 配送ID PK
+        varchar 订单编号 FK
+        int 骑手ID FK
+        datetime 取餐时间
+        datetime 送达时间
+        varchar 配送状态
+    }
+
+    骑手 {
+        int 骑手ID PK
+        varchar 姓名
+        varchar 配送状态
+        int 累计配送单数
+    }
+
+    顾客 ||--o{ 购物车项 : "加入 1:N"
+    购物车项 }o--|| 菜品 : "对应 N:1"
+    顾客 ||--o{ 订单 : "提交 1:N"
+    商家 ||--o{ 订单 : "接收 1:N"
+    订单 ||--o{ 订单明细 : "包含 1:N"
+    订单明细 }o--|| 菜品 : "对应 N:1"
+    订单 ||--|| 配送 : "生成 1:1"
+    骑手 ||--o{ 配送 : "执行 1:N"

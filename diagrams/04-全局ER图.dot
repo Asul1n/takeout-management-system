@@ -1,0 +1,91 @@
+digraph ER_Global {
+    rankdir=TB;
+    splines=polyline;
+    nodesep=0.5;
+    ranksep=0.8;
+
+    node [fontname="SimHei", fontsize=10];
+    edge [fontname="SimSun", fontsize=8];
+
+    // === ENTITIES ===
+    node [shape=box, style="filled,bold", fillcolor="#D6EAF8", fontsize=11, width=1.2, height=0.5];
+    E_User     [label="用户"];
+    E_Admin    [label="管理员"];
+    E_Merchant [label="商家"];
+    E_Customer [label="顾客"];
+    E_Rider    [label="骑手"];
+    E_Category [label="菜品分类"];
+    E_Dish     [label="菜品"];
+    E_CartItem [label="购物车项"];
+    E_Order    [label="订单"];
+    E_OrderDet [label="订单明细"];
+    E_Delivery [label="配送"];
+
+    // === RELATIONSHIPS ===
+    node [shape=diamond, style=filled, fillcolor="#FDEBD0", fontsize=8, width=0.55, height=0.55];
+    R_ISA1 [label="ISA"];
+    R_ISA2 [label="ISA"];
+    R_ISA3 [label="ISA"];
+    R_ISA4 [label="ISA"];
+    R_HasCat  [label="拥有"];
+    R_Contains [label="包含"];
+    R_HasDish [label="直接拥有"];
+    R_CartAdd  [label="加入"];
+    R_CartRef  [label="对应"];
+    R_OrderSub [label="提交"];
+    R_OrderRec [label="接收"];
+    R_OrderCont [label="包含"];
+    R_DetRef   [label="对应"];
+    R_DelGen   [label="生成"];
+    R_DelExe   [label="执行"];
+
+    // === Edges: ISA hierarchy ===
+    edge [style=solid, penwidth=1.2];
+    E_User -> R_ISA1 [headlabel="1"];
+    R_ISA1 -> E_Admin [headlabel="1"];
+    E_User -> R_ISA2 [headlabel="1"];
+    R_ISA2 -> E_Merchant [headlabel="1"];
+    E_User -> R_ISA3 [headlabel="1"];
+    R_ISA3 -> E_Customer [headlabel="1"];
+    E_User -> R_ISA4 [headlabel="1"];
+    R_ISA4 -> E_Rider [headlabel="1"];
+
+    // === Edges: Merchant-Category-Dish ===
+    E_Merchant -> R_HasCat [headlabel="1"];
+    R_HasCat -> E_Category [headlabel="N"];
+    E_Category -> R_Contains [headlabel="1"];
+    R_Contains -> E_Dish [headlabel="N"];
+    E_Merchant -> R_HasDish [headlabel="1"];
+    R_HasDish -> E_Dish [headlabel="N"];
+
+    // === Edges: Cart ===
+    E_Customer -> R_CartAdd [headlabel="1"];
+    R_CartAdd -> E_CartItem [headlabel="N"];
+    E_CartItem -> R_CartRef [headlabel="N"];
+    R_CartRef -> E_Dish [headlabel="1"];
+
+    // === Edges: Order ===
+    E_Customer -> R_OrderSub [headlabel="1"];
+    R_OrderSub -> E_Order [headlabel="N"];
+    E_Merchant -> R_OrderRec [headlabel="1"];
+    R_OrderRec -> E_Order [headlabel="N"];
+    E_Order -> R_OrderCont [headlabel="1"];
+    R_OrderCont -> E_OrderDet [headlabel="N"];
+    E_OrderDet -> R_DetRef [headlabel="N"];
+    R_DetRef -> E_Dish [headlabel="1"];
+
+    // === Edges: Delivery ===
+    E_Order -> R_DelGen [headlabel="1"];
+    R_DelGen -> E_Delivery [headlabel="1"];
+    E_Rider -> R_DelExe [headlabel="1"];
+    R_DelExe -> E_Delivery [headlabel="N"];
+
+    // === Layout ===
+    { rank=min; E_User; }
+    { rank=same; R_ISA1; R_ISA2; R_ISA3; R_ISA4; }
+    { rank=same; E_Admin; E_Merchant; E_Customer; E_Rider; }
+    { rank=same; R_HasCat; R_OrderSub; R_OrderRec; R_CartAdd; R_DelExe; }
+    { rank=same; E_Category; E_CartItem; E_Order; R_HasDish; }
+    { rank=same; R_Contains; R_CartRef; R_OrderCont; R_DelGen; }
+    { rank=same; E_Dish; E_OrderDet; E_Delivery; R_DetRef; }
+}

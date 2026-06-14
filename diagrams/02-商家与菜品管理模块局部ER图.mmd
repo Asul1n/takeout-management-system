@@ -1,0 +1,39 @@
+erDiagram
+    商家 {
+        int 商家ID PK
+        varchar 商家名称
+        varchar 联系电话
+        varchar 营业地址_省
+        varchar 营业地址_市
+        varchar 营业地址_区
+        varchar 营业地址_详细
+        varchar 营业时间_起始
+        varchar 营业时间_结束
+        varchar 商家公告
+        varchar 营业状态
+        varchar 入驻审核状态
+        int 月销量
+    }
+
+    菜品分类 {
+        int 分类ID PK
+        int 商家ID FK
+        varchar 分类名称
+        int 排序序号
+    }
+
+    菜品 {
+        int 菜品ID PK
+        int 商家ID FK
+        int 分类ID FK
+        varchar 菜品名称
+        decimal 菜品价格
+        varchar 菜品描述
+        varchar 菜品图片URL
+        int 库存量
+        varchar 上架状态
+    }
+
+    商家 ||--o{ 菜品分类 : "拥有 1:N"
+    菜品分类 ||--o{ 菜品 : "包含 1:N"
+    商家 ||--o{ 菜品 : "直接拥有 1:N"

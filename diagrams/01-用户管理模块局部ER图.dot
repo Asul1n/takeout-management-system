@@ -1,0 +1,125 @@
+digraph ER_UserModule {
+    rankdir=TB;
+    splines=ortho;
+    nodesep=0.6;
+    ranksep=0.8;
+
+    // === Global node defaults ===
+    node [fontname="SimHei", fontsize=10];
+    edge [fontname="SimSun", fontsize=9];
+
+    // === ENTITIES (rectangles) ===
+    node [shape=box, style="filled,bold", fillcolor="#D6EAF8", fontsize=11];
+    E_User    [label="用户"];
+    E_Admin   [label="管理员"];
+    E_Merchant [label="商家"];
+    E_Customer [label="顾客"];
+    E_Rider   [label="骑手"];
+
+    // === RELATIONSHIPS (diamonds) ===
+    node [shape=diamond, style=filled, fillcolor="#FDEBD0", fontsize=9, width=0.7, height=0.7];
+    R_ISA1 [label="ISA"];
+    R_ISA2 [label="ISA"];
+    R_ISA3 [label="ISA"];
+    R_ISA4 [label="ISA"];
+
+    // === ATTRIBUTES for 用户 (ellipses) ===
+    node [shape=ellipse, style=filled, fillcolor="#E8F8F5", fontsize=8, fontname="SimSun"];
+    A_UserID    [label=<&#x5C;&#x5C;用户ID&#x5C;&#x5C;>];  // underline for PK
+    A_Phone     [label="手机号"];
+    A_Password  [label="登录密码"];
+    A_Role      [label="用户身份"];
+    A_Status    [label="账号状态"];
+    A_RegTime   [label="注册时间"];
+
+    // === ATTRIBUTES for 管理员 ===
+    node [shape=ellipse, style=filled, fillcolor="#E8F8F5", fontsize=8];
+    A_AdminID   [label=<&#x5C;&#x5C;管理员ID&#x5C;&#x5C;>];
+    A_AdminName [label="姓名"];
+
+    // === ATTRIBUTES for 商家 ===
+    node [shape=ellipse, style=filled, fillcolor="#E8F8F5", fontsize=7];
+    A_MerID       [label=<&#x5C;&#x5C;商家ID&#x5C;&#x5C;>];
+    A_MerName     [label="商家名称"];
+    A_MerPhone    [label="联系电话"];
+    A_MerAddrProv [label="营业地址-省"];
+    A_MerAddrCity [label="营业地址-市"];
+    A_MerAddrDist [label="营业地址-区"];
+    A_MerAddrDet  [label="营业地址-详细"];
+    A_MerOpenTime [label="营业时间-起始"];
+    A_MerEndTime  [label="营业时间-结束"];
+    A_MerNotice   [label="商家公告"];
+    A_MerBizStat  [label="营业状态"];
+    A_MerAudit    [label="入驻审核状态"];
+    A_MerMonSales [label="月销量"];
+
+    // === ATTRIBUTES for 顾客 ===
+    node [shape=ellipse, style=filled, fillcolor="#E8F8F5", fontsize=8];
+    A_CusID       [label=<&#x5C;&#x5C;顾客ID&#x5C;&#x5C;>];
+    A_CusName     [label="姓名"];
+    A_CusAddrProv [label="配送地址-省"];
+    A_CusAddrCity [label="配送地址-市"];
+    A_CusAddrDist [label="配送地址-区"];
+    A_CusAddrDet  [label="配送地址-详细"];
+
+    // === ATTRIBUTES for 骑手 ===
+    node [shape=ellipse, style=filled, fillcolor="#E8F8F5", fontsize=8];
+    A_RiderID     [label=<&#x5C;&#x5C;骑手ID&#x5C;&#x5C;>];
+    A_RiderName   [label="姓名"];
+    A_RiderStat   [label="配送状态"];
+    A_RiderTotal  [label="累计配送单数"];
+
+    // === Edges: Entities to Relationships ===
+    edge [style=solid, penwidth=1.2];
+    E_User -> R_ISA1 [headlabel="1", labeldistance=1.5];
+    R_ISA1 -> E_Admin [headlabel="1", labeldistance=1.5];
+    E_User -> R_ISA2 [headlabel="1", labeldistance=1.5];
+    R_ISA2 -> E_Merchant [headlabel="1", labeldistance=1.5];
+    E_User -> R_ISA3 [headlabel="1", labeldistance=1.5];
+    R_ISA3 -> E_Customer [headlabel="1", labeldistance=1.5];
+    E_User -> R_ISA4 [headlabel="1", labeldistance=1.5];
+    R_ISA4 -> E_Rider [headlabel="1", labeldistance=1.5];
+
+    // === Edges: Entities to Attributes ===
+    edge [style=solid, penwidth=0.8, arrowhead=none];
+    E_User -> A_UserID;
+    E_User -> A_Phone;
+    E_User -> A_Password;
+    E_User -> A_Role;
+    E_User -> A_Status;
+    E_User -> A_RegTime;
+
+    E_Admin -> A_AdminID;
+    E_Admin -> A_AdminName;
+
+    E_Merchant -> A_MerID;
+    E_Merchant -> A_MerName;
+    E_Merchant -> A_MerPhone;
+    E_Merchant -> A_MerAddrProv;
+    E_Merchant -> A_MerAddrCity;
+    E_Merchant -> A_MerAddrDist;
+    E_Merchant -> A_MerAddrDet;
+    E_Merchant -> A_MerOpenTime;
+    E_Merchant -> A_MerEndTime;
+    E_Merchant -> A_MerNotice;
+    E_Merchant -> A_MerBizStat;
+    E_Merchant -> A_MerAudit;
+    E_Merchant -> A_MerMonSales;
+
+    E_Customer -> A_CusID;
+    E_Customer -> A_CusName;
+    E_Customer -> A_CusAddrProv;
+    E_Customer -> A_CusAddrCity;
+    E_Customer -> A_CusAddrDist;
+    E_Customer -> A_CusAddrDet;
+
+    E_Rider -> A_RiderID;
+    E_Rider -> A_RiderName;
+    E_Rider -> A_RiderStat;
+    E_Rider -> A_RiderTotal;
+
+    // Layout hints: group attributes with their entities
+    { rank=same; E_Admin; A_AdminID; A_AdminName; }
+    { rank=same; E_User; A_UserID; A_Phone; A_Password; A_Role; A_Status; A_RegTime; }
+    { rank=same; E_Merchant; A_MerID; A_MerName; }
+}
