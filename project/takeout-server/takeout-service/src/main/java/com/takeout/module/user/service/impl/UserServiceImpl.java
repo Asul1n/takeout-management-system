@@ -1,6 +1,7 @@
 package com.takeout.module.user.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
+import java.util.List;
 import java.util.Map;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -176,29 +177,27 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public Page<UserInfoVO> listUsers(UserQueryDTO dto) {
-        LambdaQueryWrapper<User> wrapper = new LambdaQueryWrapper<>();
-        if (dto.getPhone() != null && !dto.getPhone().isEmpty()) {
-            wrapper.like(User::getPhone, dto.getPhone());
-        }
-        if (dto.getRole() != null && !dto.getRole().isEmpty()) {
-            wrapper.eq(User::getRole, dto.getRole());
-        }
-        if (dto.getStatus() != null && !dto.getStatus().isEmpty()) {
-            wrapper.eq(User::getStatus, dto.getStatus());
-        }
-        wrapper.orderByDesc(User::getCreateTime);
+        // 使用 View v_user_summary 直接查询
+        long offset = (long) (dto.getPage() - 1) * dto.getSize();
+        String phone = (dto.getPhone() != null && !dto.getPhone().isEmpty()) ? dto.getPhone() : null;
+        String role = (dto.getRole() != null && !dto.getRole().isEmpty()) ? dto.getRole() : null;
+        String status = (dto.getStatus() != null && !dto.getStatus().isEmpty()) ? dto.getStatus() : null;
 
-        Page<User> page = new Page<>(dto.getPage(), dto.getSize());
-        Page<User> result = userMapper.selectPage(page, wrapper);
+        List<Map<String, Object>> rows = userMapper.selectUserSummaries(phone, role, status, offset, (long) dto.getSize());
+        long total = userMapper.countUserSummaries(phone, role, status);
 
-        return (Page<UserInfoVO>) result.convert(u -> UserInfoVO.builder()
-                .id(u.getId())
-                .phone(u.getPhone())
-                .role(u.getRole())
-                .status(u.getStatus())
-                .name(getUserName(u))
-                .createTime(u.getCreateTime())
-                .build());
+        List<UserInfoVO> vos = rows.stream().map(row -> UserInfoVO.builder()
+                .id(Long.valueOf(row.get("id").toString()))
+                .phone((String) row.get("phone"))
+                .role((String) row.get("role"))
+                .status((String) row.get("status"))
+                .name((String) row.get("display_name"))
+                .createTime((java.time.LocalDateTime) row.get("create_time"))
+                .build()).collect(java.util.stream.Collectors.toList());
+
+        Page<UserInfoVO> page = new Page<>(dto.getPage(), dto.getSize(), total);
+        page.setRecords(vos);
+        return page;
     }
 
     @Override
