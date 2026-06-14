@@ -180,141 +180,37 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void acceptOrder(Long merchantId, String orderNo) {
-        Order order = orderMapper.selectById(orderNo);
-        if (order == null || !order.getMerchantId().equals(merchantId)) {
-            throw new BusinessException(CommonConstant.FORBIDDEN, "无权操作该订单");
-        }
-        validateStatusTransition(order, "备餐中");
-        order.setStatus("备餐中");
-        orderMapper.updateById(order);
-
-        // SSE推送 + 通知：告知顾客订单已接单
-        sseService.sendEvent(order.getCustomerId(), "order:accepted",
-                Map.of("orderNo", orderNo, "status", "备餐中"));
-        notificationService.create(order.getCustomerId(), "order_accepted",
-                "订单已接单", "您的订单（" + orderNo + "）已被商家接单，正在备餐中", orderNo);
-    }
+        jdbcTemplate.update("CALL sp_accept_order(?,?)", orderNo, merchantId);
+}
 
     @Override
     @Transactional
     public void prepareComplete(Long merchantId, String orderNo) {
-        Order order = orderMapper.selectById(orderNo);
-        if (order == null || !order.getMerchantId().equals(merchantId)) {
-            throw new BusinessException(CommonConstant.FORBIDDEN, "无权操作该订单");
-        }
-        validateStatusTransition(order, "待配送");
-        order.setStatus("待配送");
-        orderMapper.updateById(order);
-
-        // 生成配送任务
-        Delivery delivery = new Delivery();
-        delivery.setOrderNo(orderNo);
-        delivery.setStatus("待取餐");
-        deliveryMapper.insert(delivery);
-
-        log.info("备餐完成，配送任务已生成: orderNo={}", orderNo);
-
-        // SSE推送 + 通知：告知顾客备餐完成
-        sseService.sendEvent(order.getCustomerId(), "order:ready",
-                Map.of("orderNo", orderNo, "status", "待配送"));
-        notificationService.create(order.getCustomerId(), "order_ready",
-                "备餐完成", "您的订单（" + orderNo + "）备餐已完成，等待骑手取餐", orderNo);
-    }
+        jdbcTemplate.update("CALL sp_prepare_complete(?,?)", orderNo, merchantId);
+}
 
     @Override
     @Transactional
     public void cancelOrder(Long customerId, String orderNo) {
-        Order order = orderMapper.selectById(orderNo);
-        if (order == null || !order.getCustomerId().equals(customerId)) {
-            throw new BusinessException(CommonConstant.FORBIDDEN, "无权操作该订单");
-        }
-
-        // F19: 备餐中及之后状态需商家同意才能取消
-        if (!"已提交".equals(order.getStatus()) && !"待接单".equals(order.getStatus())) {
-            throw new BusinessException("商家已接单，请先申请商家同意取消");
-        }
-
-        validateStatusTransition(order, "已取消");
-        deliveryMapper.delete(new LambdaQueryWrapper<Delivery>().eq(Delivery::getOrderNo, orderNo));
-        order.setStatus("已取消");
-        orderMapper.updateById(order);
-        log.info("订单已取消: orderNo={}", orderNo);
-    }
+        jdbcTemplate.update("CALL sp_cancel_order(?,?)", orderNo, customerId);
+}
 
     /** 顾客申请取消（商家已接单后） */
     public void requestCancel(Long customerId, String orderNo) {
-        Order order = orderMapper.selectById(orderNo);
-        if (order == null || !order.getCustomerId().equals(customerId)) {
-            throw new BusinessException(CommonConstant.FORBIDDEN, "无权操作该订单");
-        }
-        // 通知商家有取消申请
-        notificationService.create(order.getMerchantId(), "order_ready",
-                "取消申请", "顾客申请取消订单（" + orderNo + "），请处理", orderNo);
-        log.info("顾客申请取消订单: orderNo={}", orderNo);
-    }
+        jdbcTemplate.update("CALL sp_request_cancel(?,?)", orderNo, customerId);
+}
 
     /** 商家同意/拒绝取消申请 */
     @Transactional
     public void merchantCancel(Long merchantId, String orderNo, boolean approved) {
-        Order order = orderMapper.selectById(orderNo);
-        if (order == null || !order.getMerchantId().equals(merchantId)) {
-            throw new BusinessException(CommonConstant.FORBIDDEN, "无权操作该订单");
-        }
-        if (approved) {
-            deliveryMapper.delete(new LambdaQueryWrapper<Delivery>().eq(Delivery::getOrderNo, orderNo));
-            order.setStatus("已取消");
-            orderMapper.updateById(order);
-            notificationService.create(order.getCustomerId(), "delivery_arrived",
-                    "订单已取消", "商家已同意取消您的订单（" + orderNo + "）", orderNo);
-            log.info("商家同意取消: orderNo={}", orderNo);
-        } else {
-            notificationService.create(order.getCustomerId(), "delivery_arrived",
-                    "取消被拒绝", "商家拒绝了您的取消申请（" + orderNo + "），订单将继续处理", orderNo);
-            log.info("商家拒绝取消: orderNo={}", orderNo);
-        }
-    }
+        jdbcTemplate.update("CALL sp_merchant_cancel_review(?,?,?)", orderNo, merchantId, approved ? 1 : 0);
+}
 
     @Override
     @Transactional
     public void confirmReceipt(Long customerId, String orderNo) {
-        Order order = orderMapper.selectById(orderNo);
-        if (order == null || !order.getCustomerId().equals(customerId)) {
-            throw new BusinessException(CommonConstant.FORBIDDEN, "无权操作该订单");
-        }
-        validateStatusTransition(order, "已完成");
-
-        order.setStatus("已完成");
-        orderMapper.updateById(order);
-
-        // 更新配送状态
-        Delivery delivery = deliveryMapper.selectOne(
-                new LambdaQueryWrapper<Delivery>().eq(Delivery::getOrderNo, orderNo));
-        if (delivery != null) {
-            delivery.setStatus("已送达");
-            delivery.setDeliverTime(LocalDateTime.now());
-            deliveryMapper.updateById(delivery);
-
-            // 骑手设为空闲并累加配送数
-            if (delivery.getRiderId() != null) {
-                Rider rider = riderMapper.selectById(delivery.getRiderId());
-                if (rider != null) {
-                    rider.setStatus("空闲");
-                    rider.setTotalDeliveries(rider.getTotalDeliveries() + 1);
-                    riderMapper.updateById(rider);
-
-                    // 骑手完成一单配送
-                }
-            }
-        }
-
-        log.info("订单已完成: orderNo={}", orderNo);
-
-        // SSE推送 + 通知：告知顾客订单已完成
-        sseService.sendEvent(order.getCustomerId(), "delivery:arrived",
-                Map.of("orderNo", orderNo, "status", "已完成"));
-        notificationService.create(order.getCustomerId(), "delivery_arrived",
-                "订单已完成", "您的订单（" + orderNo + "）已确认收货，感谢您的惠顾！", orderNo);
-    }
+        jdbcTemplate.update("CALL sp_confirm_receipt(?,?)", orderNo, customerId);
+}
 
     // ==================== 私有方法 ====================
 

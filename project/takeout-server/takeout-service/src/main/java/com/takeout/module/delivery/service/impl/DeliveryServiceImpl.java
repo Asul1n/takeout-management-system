@@ -23,6 +23,7 @@ import com.takeout.module.user.service.SseService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -43,6 +44,7 @@ public class DeliveryServiceImpl implements DeliveryService {
     private final AddressMapper addressMapper;
     private final MerchantMapper merchantMapper;
     private final RedisTemplate<String, Object> redisTemplate;
+    private final JdbcTemplate jdbcTemplate;
     private final SseService sseService;
     private final NotificationService notificationService;
 
@@ -59,73 +61,20 @@ public class DeliveryServiceImpl implements DeliveryService {
     @Override
     @Transactional
     public void acceptDelivery(Long riderId, Long deliveryId) {
-        // 骑手可同时接多单，不做互斥限制
-
-        Delivery delivery = deliveryMapper.selectById(deliveryId);
-        if (delivery == null || delivery.getRiderId() != null) {
-            throw new BusinessException("该配送任务已被其他骑手接单");
-        }
-
-        // 更新配送记录
-        delivery.setRiderId(riderId);
-        delivery.setStatus("待取餐");
-        deliveryMapper.updateById(delivery);
-
-        // 更新骑手状态
-        Rider rider = riderMapper.selectById(riderId);
-        if (rider != null) {
-            rider.setStatus("配送中");
-            riderMapper.updateById(rider);
-        }
-
-        // 更新订单状态
-        Order order = orderMapper.selectById(delivery.getOrderNo());
-        if (order != null) {
-            order.setStatus("配送中");
-            orderMapper.updateById(order);
-        }
-
-        log.info("骑手接单: riderId={}, deliveryId={}, orderNo={}", riderId, deliveryId, delivery.getOrderNo());
-
-        // SSE推送 + 通知：告知顾客骑手已接单
-        if (order != null) {
-            sseService.sendEvent(order.getCustomerId(), "delivery:accepted",
-                    Map.of("orderNo", delivery.getOrderNo(), "riderName", rider.getName()));
-            notificationService.create(order.getCustomerId(), "delivery_accepted",
-                    "骑手已接单", "骑手" + rider.getName() + "已接单，正在前往取餐", delivery.getOrderNo());
-        }
-    }
+        jdbcTemplate.update("CALL sp_rider_accept_delivery(?,?)", deliveryId, riderId);
+}
 
     @Override
     @Transactional
     public void pickup(Long riderId, Long deliveryId) {
-        Delivery delivery = getDeliveryById(deliveryId);
-        if (!riderId.equals(delivery.getRiderId())) {
-            throw new BusinessException(CommonConstant.FORBIDDEN, "无权操作该配送任务");
-        }
-        delivery.setStatus("配送中");
-        delivery.setPickupTime(LocalDateTime.now());
-        deliveryMapper.updateById(delivery);
-    }
+        jdbcTemplate.update("CALL sp_rider_pickup(?,?)", deliveryId, riderId);
+}
 
     @Override
     @Transactional
     public void deliver(Long riderId, Long deliveryId) {
-        Delivery delivery = getDeliveryById(deliveryId);
-        if (!riderId.equals(delivery.getRiderId())) {
-            throw new BusinessException(CommonConstant.FORBIDDEN, "无权操作该配送任务");
-        }
-        delivery.setStatus("已送达");
-        delivery.setDeliverTime(LocalDateTime.now());
-        deliveryMapper.updateById(delivery);
-
-        // 更新订单状态
-        Order order = orderMapper.selectById(delivery.getOrderNo());
-        if (order != null) {
-            order.setStatus("已送达");
-            orderMapper.updateById(order);
-        }
-    }
+        jdbcTemplate.update("CALL sp_rider_deliver(?,?)", deliveryId, riderId);
+}
 
     @Override
     public Page<DeliveryVO> riderDeliveries(Long riderId, Integer page, Integer size) {
