@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.takeout.module.order.mapper.OrderMapper">
+
+    <!-- 按商家统计菜品销量排行 -->
+    <select id="countDishSalesByMerchant" resultType="java.util.Map">
+        SELECT
+            oi.dish_id AS dishId,
+            oi.dish_name AS dishName,
+            SUM(oi.quantity) AS totalQuantity,
+            SUM(oi.unit_price * oi.quantity) AS totalAmount
+        FROM order_item oi
+        JOIN order_info o ON oi.order_no = o.order_no
+        WHERE o.merchant_id = #{merchantId}
+          AND o.status = '已完成'
+          AND o.create_time BETWEEN #{start} AND #{end}
+        GROUP BY oi.dish_id, oi.dish_name
+        ORDER BY totalQuantity DESC
+    </select>
+
+</mapper>

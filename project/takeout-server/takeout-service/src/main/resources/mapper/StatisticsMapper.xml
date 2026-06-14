@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.takeout.module.statistics.mapper.StatisticsMapper">
+
+    <!-- 商家排名 — 按营收排序 -->
+    <select id="merchantRankByRevenue" resultType="java.util.Map">
+        SELECT
+            m.id AS merchantId,
+            m.name AS merchantName,
+            COUNT(o.order_no) AS orderCount,
+            COALESCE(SUM(o.total_amount), 0) AS totalRevenue
+        FROM merchant m
+        LEFT JOIN order_info o ON m.id = o.merchant_id AND o.status = '已完成'
+            AND o.create_time BETWEEN #{start} AND #{end}
+        GROUP BY m.id, m.name
+        ORDER BY totalRevenue DESC
+    </select>
+
+    <!-- 菜品销量排行（全平台） -->
+    <select id="dishRankBySales" resultType="java.util.Map">
+        SELECT
+            oi.dish_id AS dishId,
+            oi.dish_name AS dishName,
+            SUM(oi.quantity) AS totalQuantity
+        FROM order_item oi
+        JOIN order_info o ON oi.order_no = o.order_no
+        WHERE o.status = '已完成'
+          AND o.create_time BETWEEN #{start} AND #{end}
+        GROUP BY oi.dish_id, oi.dish_name
+        ORDER BY totalQuantity DESC
+        LIMIT 20
+    </select>
+
+    <!-- 顾客消费排行 -->
+    <select id="customerRankBySpending" resultType="java.util.Map">
+        SELECT
+            c.id AS customerId,
+            c.name AS customerName,
+            COUNT(o.order_no) AS orderCount,
+            COALESCE(SUM(o.total_amount), 0) AS totalSpending
+        FROM customer c
+        JOIN order_info o ON c.id = o.customer_id AND o.status = '已完成'
+            AND o.create_time BETWEEN #{start} AND #{end}
+        GROUP BY c.id, c.name
+        ORDER BY totalSpending DESC
+    </select>
+
+</mapper>

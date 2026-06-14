@@ -1,0 +1,9 @@
+# 前端
+takeout-admin/node_modules/
+takeout-admin/dist/
+
+# 后端
+takeout-server/target/
+takeout-server/*/target/
+uploads/
+*.log

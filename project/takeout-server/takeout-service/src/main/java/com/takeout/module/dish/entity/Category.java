@@ -1,0 +1,29 @@
+package com.takeout.module.dish.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.takeout.framework.base.BaseEntity;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
+
+/**
+ * 菜品分类表
+ */
+@Data
+@EqualsAndHashCode(callSuper = true)
+@TableName("category")
+public class Category extends BaseEntity {
+
+    @TableId(type = IdType.AUTO)
+    private Long id;
+
+    /** 商家ID */
+    private Long merchantId;
+
+    /** 分类名称 */
+    private String name;
+
+    /** 排序序号 */
+    private Integer sort;
+}
