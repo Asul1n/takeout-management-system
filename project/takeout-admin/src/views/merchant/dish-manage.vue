@@ -101,8 +101,10 @@ async function saveProfile() {
 async function fetchData() {
   loading.value = true
   try {
+    const user = await request.get('/user/me')
+    const merchantId = user.data.id
     const [dRes, cRes] = await Promise.all([
-      request.get('/dishes', { params: { page: 1, size: 100 } }),
+      request.get('/dishes', { params: { merchantId, page: 1, size: 100 } }),
       request.get('/merchant/categories')
     ])
     dishes.value = dRes.data.records
